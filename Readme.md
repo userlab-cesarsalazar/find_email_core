@@ -20,8 +20,9 @@ eviar un json con formato parecido a este ejemplo
     
 }
 
-una prueba corre actualmente en http://homezerox.all.my:300/buscar por post
+una prueba corre actualmente en http://homezerox.all.my:3000/buscar por post
 (no garantizo que este siempre arriba, pero me dices y lo pongo a correr)
+
 
 */
 
