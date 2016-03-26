@@ -22,11 +22,12 @@ ConsultasDetalleSchema.index({nombre:1, apellido:1, dominio:1 }, {unique: true})
 
 var MaestroConsultaSchema = new Schema({
     userType: String,
-    IPAddress: {type:String, index: {unique: true, dropDups: true }},
+    IPAddress: String,
     ultimaConsulta: Date,
     search: Number
         
 });
+MaestroConsultaSchema.index( {userType:1, IPAddress:1}, {unique: true });
 
 
 var userConfigSchema = new mongoose.Schema({

@@ -61,12 +61,12 @@ var band=0;
 *	Función que verifica recursivamente los elementos de la correo generada en la anterior funcion 
 *   y los valida. si consigue uno correo, se detiene y envia ese resultado, tambien lo almacena en la bd
 **/
- function verificarCorreoSMTPRecursiva(lista,pos,res) {
- 	if (lista.length>pos && band==0){
+function verificarCorreoSMTPRecursiva(lista,pos,res) {
+	if (lista.length>pos && band==0){
 
- 		var verifier = require('email-verify');
- 		verifier.verify(lista[pos], function(err, info) {
- 			if (err) {
+		var verifier = require('email-verify');
+		verifier.verify(lista[pos], function(err, info) {
+			if (err) {
  			band=3;//error de servidor
  			controller.resultadoPositivo=false;
  			controller.error="Connection Refused by Server";
@@ -93,7 +93,7 @@ var band=0;
         					console.error(err);
         				}
         				else {
-        					console.log(data);
+        					//console.log(data);
         				}
         			});
         		try{
@@ -115,31 +115,31 @@ var band=0;
 
 	});
 
- 	}else {
- 		if (band==0){
- 			controller.resultadoPositivo=false;
- 			controller.error="Mail Not Found";
- 			try{
- 				res.json(controller);
- 			}catch(e){
- 				res.end;
- 				console.log(e);
- 				console.log(e.stack);
- 			}
- 		}
+	}else {
+		if (band==0){
+			controller.resultadoPositivo=false;
+			controller.error="Mail Not Found";
+			try{
+				res.json(controller);
+			}catch(e){
+				res.end;
+				console.log(e);
+				console.log(e.stack);
+			}
+		}
 
- 	}
+	}
 
- 	
- }
+
+}
 
 /**
 * Funcion por conveniencia, para llamar a  verificarCorreoSMTPRecursiva
 */
- function buscarCorreoValido(listaCorreo, iniciarEn, res) {
+function buscarCorreoValido(listaCorreo, iniciarEn, res) {
 
- 	band = 0;
-   	verificarCorreoSMTPRecursiva(listaCorreo,0,res);
+	band = 0;
+	verificarCorreoSMTPRecursiva(listaCorreo,0,res);
 
 }
 
@@ -156,9 +156,9 @@ function buscarCorreoBD(res){
 		if (err)
 			console.log(err);
 		else
-			console.log (data);
+			//console.log (data);
 		if (data != null){
-			console.log(data);
+			//console.log(data);
 			controller.resultadoPositivo = true;
 			controller.correoValido= data.correo;
 			db.ConsultasDetalle.update({nombre:nombre, apellido:apellido, dominio:dominio },{fechaConsulta: new Date() } ,{multi:true}, function(err,rowupdates){
@@ -245,7 +245,7 @@ function acceso(userType,ip,res,next){
 
 							db.MaestroConsulta.update({IPAddress:ip},{search: data.search+1,ultimaConsulta: new Date() } ,{multi:true}, function(err,rowupdates){
 								buscarCorreoBD(res);
-								console.log('rowupdates:'+ rowupdates);
+								//console.log('rowupdates:'+ rowupdates);
 
 							});
 							controller.consultasRestantes=data1.maxSearch - (data.search+1);
@@ -271,30 +271,38 @@ function acceso(userType,ip,res,next){
 								controller.waitTime = (tiempo.getHours()-19)+":"+(tiempo.getMinutes()-30)+":"+tiempo.getSeconds();
 								controller.error="maxSearch exceeded";
 
-							try{
-								res.json(controller);
+								try{
+									res.json(controller);
 
 
-							}catch(e){
-								res.end;
-								console.log(e);
-								console.log(e.stack);
+								}catch(e){
+									res.end;
+									console.log(e);
+									console.log(e.stack);
+								}
+
 							}
-							
-						}
 
+						}
 					}
-				}
-				else {	
-					if (userType=='guest'){
+					else {	console.log(data1);
+						
 						controller.accesoPermitido = true;
 						controller.waitTime='00:00:00';
-						db.MaestroConsulta.create({userType: userType, IPAddress:ip, ultimaConsulta:new Date() ,search:1})
+						db.MaestroConsulta.create({userType: userType, IPAddress:ip, ultimaConsulta:new Date() ,search:1}, function(err, dat){
+							if (err){
+								console.error(err);
+								controller.error=err.errmsg;
+								res.json(controller);
+							}else
+							console.log(dat);
+
+						});
+
+						
 
 					}
-
-				}
-			});
+				});
 
 
 	});
