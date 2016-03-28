@@ -200,9 +200,9 @@ function buscarCorreoBD(res){
 function peticion(userType,ip,nombre2,apellido2,dominio2,res,next) {
 	
 	// body...
-	nombre=nombre2;
-	apellido=apellido2;
-	dominio=dominio2;
+	nombre=normalize(nombre2).toLowerCase();
+	apellido=normalize(apellido2).toLowerCase();
+	dominio=normalize(dominio2).toLowerCase();
 	controller.accesoPermitido=false;
 	controller.resultadoPositivo=false;
 	controller.error="";
@@ -285,8 +285,7 @@ function acceso(userType,ip,res,next){
 
 						}
 					}
-					else {	console.log(data1);
-						
+					else {	
 						controller.accesoPermitido = true;
 						controller.waitTime='00:00:00';
 						db.MaestroConsulta.create({userType: userType, IPAddress:ip, ultimaConsulta:new Date() ,search:1}, function(err, dat){
@@ -294,8 +293,11 @@ function acceso(userType,ip,res,next){
 								console.error(err);
 								controller.error=err.errmsg;
 								res.json(controller);
-							}else
-							console.log(dat);
+							}else{
+								buscarCorreoBD(res);
+
+							}
+							
 
 						});
 
@@ -308,8 +310,116 @@ function acceso(userType,ip,res,next){
 	});
 
 }
+
+function consultasDisponibles(userType,ip,res,next){
+
+	controller.ipOrigen = ip;
+	controller.userType = userType;
+	
+
+	db.UserConfig.findOne({userType:userType}, function(err,data1){
+		if (err)
+			console.log(err);
+		else
+			db.MaestroConsulta.findOne({IPAddress:ip, userType:userType},function (err,data){
+				if (err)
+					console.log(err);
+				else
+					if (data != null && data.IPAddress == ip){
+						if (data.search< data1.maxSearch){
+
+							try{
+								res.json({consultasRestantes:data1.maxSearch-data.search, waitTime:"00:00:00"});
+							}catch(e){
+								res.end;
+								console.log(e);
+								console.log(e.stack);
+							}
+						}else{
+							var fecha = new Date();
+							var fechaUltimoAcceso= data.ultimaConsulta;
+
+							var waitTime=1000*(data1.waitTime.split(':')[0]*3600+data1.waitTime.split(':')[1]*60+data1.waitTime.split(':')[2]);
+							var tiempoTranscurrido=(fecha.getTime()-fechaUltimoAcceso.getTime());
+							if ((fecha.getTime()-fechaUltimoAcceso.getTime())>waitTime){
+								
+								try{
+									res.json({consultasRestantes:data1.maxSearch, waitTime:"00:00:00"});
+								}catch(e){
+									res.end;
+									console.log(e);
+									console.log(e.stack);
+								}
+							}else {
+								var tiempo=new Date(waitTime - tiempoTranscurrido);
+
+								
+
+								try{
+									res.json({consultasRestantes:0,waitTime:(tiempo.getHours()-19)+":"+(tiempo.getMinutes()-30)+":"+tiempo.getSeconds()});
+
+
+								}catch(e){
+									res.end;
+									console.log(e);
+									console.log(e.stack);
+								}
+
+							}
+
+						}
+					}
+					else {							
+						try{
+							res.json({consultasRestantes:data1.maxSearch, waitTime: "00:00:00"})
+						}catch(e){
+							res.end;
+							console.log(e);
+							console.log(e.stack);
+						}
+
+						
+
+					}
+				});
+
+
+	});
+
+}
+
+/**
+* funcion que normaliza el texto, elimina tildes y Ñ y los sustituye
+*/
+
+var normalize = (function() {
+  var from = "ÃÀÁÄÂÈÉËÊÌÍÏÎÒÓÖÔÙÚÜÛãàáäâèéëêìíïîòóöôùúüûÑñÇç", 
+      to   = "AAAAAEEEEIIIIOOOOUUUUaaaaaeeeeiiiioooouuuunncc",
+      mapping = {};
+ 
+  for(var i = 0, j = from.length; i < j; i++ )
+      mapping[ from.charAt( i ) ] = to.charAt( i );
+ 
+  return function( str ) {
+      var ret = [];
+      for( var i = 0, j = str.length; i < j; i++ ) {
+          var c = str.charAt( i );
+          if( mapping.hasOwnProperty( str.charAt( i ) ) )
+              ret.push( mapping[ c ] );
+          else
+              ret.push( c );
+      }      
+      return ret.join( '' );
+  }
+ 
+})();
+
+
+
 /**
 * solo me interesa exportar la peticion lo demas es privado del modulo
 *
 */
 exports.peticion = peticion;
+exports.consultasDisponibles = consultasDisponibles;
+

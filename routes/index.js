@@ -18,7 +18,8 @@ router.get('/buscar/:nombre/:apellido/:dominio', function(req, res, next) {
 });
 
 router.post('/buscar', function(req, res, next) {
-	
+	//console.log(req.body);
+
 	if (req.body.apellido==null){
 		nombres=req.body.nombre.trim().split(" ");
 	if (nombres.length>1){		
@@ -31,9 +32,39 @@ router.post('/buscar', function(req, res, next) {
  		}
 
 	}
-	core.peticion(req.body.userType,req.ip,req.body.nombre,req.body.apellido,req.body.dominio,res,next);
+	core.peticion(req.body.userType,req.ip,normalize(req.body.nombre),normalize(req.body.apellido),normalize(req.body.dominio),res,next);
 });
 
+router.post('/consultas', function(req, res, next) {
+
+	core.consultasDisponibles(req.body.userType,req.ip,res,next);
+});
+
+/**
+* funcion que normaliza el texto, elimina tildes y Ñ y los sustituye
+*/
+
+var normalize = (function() {
+  var from = "ÃÀÁÄÂÈÉËÊÌÍÏÎÒÓÖÔÙÚÜÛãàáäâèéëêìíïîòóöôùúüûÑñÇç", 
+      to   = "AAAAAEEEEIIIIOOOOUUUUaaaaaeeeeiiiioooouuuunncc",
+      mapping = {};
+ 
+  for(var i = 0, j = from.length; i < j; i++ )
+      mapping[ from.charAt( i ) ] = to.charAt( i );
+ 
+  return function( str ) {
+      var ret = [];
+      for( var i = 0, j = str.length; i < j; i++ ) {
+          var c = str.charAt( i );
+          if( mapping.hasOwnProperty( str.charAt( i ) ) )
+              ret.push( mapping[ c ] );
+          else
+              ret.push( c );
+      }      
+      return ret.join( '' );
+  }
+ 
+})();
 
 
 module.exports = router;
