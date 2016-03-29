@@ -5,7 +5,11 @@ Archivos a editar para el funcionamiento:
 	contiene la información sobre la conexión a la base de datos en mongo
 /app/core.js
 	funciones de validación de correo solo se exporta la funcion "peticion".
-/routes 
+/routes/index
+	direcciones para uso del servicio, /buscar y /consultar
+runFirst.js
+	archivo ejecutable que crea la primera configuracion del server. correr con node runFirst.js
+
 
 /*
 funcionamiento de la ruta
