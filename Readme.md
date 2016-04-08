@@ -1,3 +1,14 @@
+*BUGFIX 07-04-2016 *
+* corregido error en waitTime negativo
+* añadido errCode en la respuesta a buscar
+		0: sin error
+		1: conexion rechazada
+		2: correo no encontrado
+		3: maximo de consultas alcanzado
+		9: error de base de datos
+
+
+
 Core para sistema de consultas de correo
 
 Archivos a editar para el funcionamiento:

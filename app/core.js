@@ -5,7 +5,7 @@ var db = require("../app/dbConfig"); // base de datos utiliza mongoose
 /*
 *	variables de control y salida
 */
-var controller = {accesoPermitido:false,resultadoPositivo:false, userType:'guest', ipOrigen:'', correoValido:'',consultasRestantes:0,waitTime:'00:00:00',error:"" }
+var controller = {accesoPermitido:false,resultadoPositivo:false, userType:'guest', ipOrigen:'', correoValido:'',consultasRestantes:0,waitTime:'00:00:00',error:"",errCode:0 }
 var salida= [];
 var nombre="";
 var apellido="";
@@ -32,19 +32,22 @@ var band=0;
  		apellido = nombre.split(" ")[1];
  		nombre = nombre.split(" ")[0];
  	}
- 	
+ 	apellido = apellido||"";
  	dominio = dominio.replace("@", "");
  	caracteresEsp.unshift("");
 
 
  	salida.push(nombre + "@" + dominio);
  	salida.push(apellido + "@" + dominio);
- 	var tamCarEps = caracteresEsp.length;
-
- 	for (var i = 0; i < tamCarEps; i++) {
- 		salida.push(nombre.charAt(0) + caracteresEsp[i] + apellido + "@" + dominio);
- 		salida.push(apellido.charAt(0) + caracteresEsp[i] + nombre + "@" + dominio);
+ 	var tamCarEps = caracteresEsp.length>0
+ 	
+ 	if (apellido.length>0 && nombre.length>0){
+ 		for (var i = 0; i < tamCarEps; i++) {
+ 			salida.push(nombre.charAt(0) + caracteresEsp[i] + apellido + "@" + dominio);
+ 			salida.push(apellido.charAt(0) + caracteresEsp[i] + nombre + "@" + dominio);
+ 		}
  	}
+ 	
  	for (var i = 0; i < tamCarEps; i++) {
  		for (var j = nombre.length; j > 1; j--) {
  			salida.push(nombre.substring(0, j) + caracteresEsp[i] + apellido + "@" + dominio);
@@ -70,6 +73,7 @@ function verificarCorreoSMTPRecursiva(lista,pos,res) {
  			band=3;//error de servidor
  			controller.resultadoPositivo=false;
  			controller.error="Connection Refused by Server";
+ 			controller.errCode=1;
  			try{
  				res.json(controller);
  			}catch(e){
@@ -119,6 +123,7 @@ function verificarCorreoSMTPRecursiva(lista,pos,res) {
 		if (band==0){
 			controller.resultadoPositivo=false;
 			controller.error="Mail Not Found";
+			controller.errCode=2
 			try{
 				res.json(controller);
 			}catch(e){
@@ -164,6 +169,7 @@ function buscarCorreoBD(res){
 			db.ConsultasDetalle.update({nombre:nombre, apellido:apellido, dominio:dominio },{fechaConsulta: new Date() } ,{multi:true}, function(err,rowupdates){
 				if (err){
 					controller.error=err;
+					errCode=9
 
 				}else{
 
@@ -206,6 +212,7 @@ function peticion(userType,ip,nombre2,apellido2,dominio2,res,next) {
 	controller.accesoPermitido=false;
 	controller.resultadoPositivo=false;
 	controller.error="";
+	controller.errCode=0;
 	controller.correoValido="";
 	salida=[];
 	generar(nombre,apellido,dominio,array);
@@ -268,8 +275,9 @@ function acceso(userType,ip,res,next){
 								var tiempo=new Date(waitTime - tiempoTranscurrido);
 
 								controller.accesoPermitido=false;
-								controller.waitTime = (tiempo.getHours()-19)+":"+(tiempo.getMinutes()-30)+":"+tiempo.getSeconds();
+								controller.waitTime = (tiempo.getHours())+":"+(tiempo.getMinutes())+":"+tiempo.getSeconds();
 								controller.error="maxSearch exceeded";
+								controller.errCode=3;
 
 								try{
 									res.json(controller);
@@ -292,6 +300,7 @@ function acceso(userType,ip,res,next){
 							if (err){
 								console.error(err);
 								controller.error=err.errmsg;
+								controller.errCode=9;
 								res.json(controller);
 							}else{
 								buscarCorreoBD(res);
@@ -356,7 +365,7 @@ function consultasDisponibles(userType,ip,res,next){
 								
 
 								try{
-									res.json({consultasRestantes:0,waitTime:(tiempo.getHours()-19)+":"+(tiempo.getMinutes()-30)+":"+tiempo.getSeconds()});
+									res.json({consultasRestantes:0,waitTime:(tiempo.getHours())+":"+(tiempo.getMinutes())+":"+tiempo.getSeconds()});
 
 
 								}catch(e){
@@ -393,25 +402,25 @@ function consultasDisponibles(userType,ip,res,next){
 */
 
 var normalize = (function() {
-  var from = "ÃÀÁÄÂÈÉËÊÌÍÏÎÒÓÖÔÙÚÜÛãàáäâèéëêìíïîòóöôùúüûÑñÇç", 
-      to   = "AAAAAEEEEIIIIOOOOUUUUaaaaaeeeeiiiioooouuuunncc",
-      mapping = {};
- 
-  for(var i = 0, j = from.length; i < j; i++ )
-      mapping[ from.charAt( i ) ] = to.charAt( i );
- 
-  return function( str ) {
-      var ret = [];
-      for( var i = 0, j = str.length; i < j; i++ ) {
-          var c = str.charAt( i );
-          if( mapping.hasOwnProperty( str.charAt( i ) ) )
-              ret.push( mapping[ c ] );
-          else
-              ret.push( c );
-      }      
-      return ret.join( '' );
-  }
- 
+	var from = "ÃÀÁÄÂÈÉËÊÌÍÏÎÒÓÖÔÙÚÜÛãàáäâèéëêìíïîòóöôùúüûÑñÇç", 
+	to   = "AAAAAEEEEIIIIOOOOUUUUaaaaaeeeeiiiioooouuuunncc",
+	mapping = {};
+
+	for(var i = 0, j = from.length; i < j; i++ )
+		mapping[ from.charAt( i ) ] = to.charAt( i );
+
+	return function( str ) {
+		var ret = [];
+		for( var i = 0, j = str.length; i < j; i++ ) {
+			var c = str.charAt( i );
+			if( mapping.hasOwnProperty( str.charAt( i ) ) )
+				ret.push( mapping[ c ] );
+			else
+				ret.push( c );
+		}      
+		return ret.join( '' );
+	}
+
 })();
 
 

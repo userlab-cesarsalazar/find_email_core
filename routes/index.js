@@ -26,7 +26,7 @@ router.post('/buscar', function(req, res, next) {
  		req.body.apellido = nombres[1];
  		req.body.nombre = nombres[0];
  		}else{
- 			req.body.apellido = "";
+ 			req.body.apellido = " ";
  			req.body.nombre=nombres[0];
 
  		}
