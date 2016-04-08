@@ -6,7 +6,8 @@
 		2: correo no encontrado
 		3: maximo de consultas alcanzado
 		9: error de base de datos
-
+		
+* corregido error al no mandar apellido
 
 
 Core para sistema de consultas de correo
