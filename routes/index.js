@@ -12,10 +12,7 @@ router.get('/', function(req, res, next) {
 	res.render('index', { title: 'Express' });
 });
 
-router.get('/buscar/:nombre/:apellido/:dominio', function(req, res, next) {
 
-	core.peticion('guest',req.ip,req.params.nombre,req.params.apellido,req.params.dominio,res,next);
-});
 
 router.post('/buscar', function(req, res, next) {
 	//console.log(req.body);
@@ -39,6 +36,17 @@ router.post('/consultas', function(req, res, next) {
 
 	core.consultasDisponibles(req.body.userType,req.ip,res,next);
 });
+
+router.post('/pagos', function(req, res, next) {
+  console.log(req.body);
+
+core.realizarCobro(req.body,res,next);
+ // console.log(req);
+  //res.json({bu:true});
+
+  //core.procesarPago(req.body.token,req.ip,res,next);
+});
+
 
 /**
 * funcion que normaliza el texto, elimina tildes y Ñ y los sustituye

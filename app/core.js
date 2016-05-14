@@ -35,11 +35,14 @@ var band=0;
  	apellido = apellido||"";
  	dominio = dominio.replace("@", "");
  	caracteresEsp.unshift("");
-
+ 	
 
  	salida.push(nombre + "@" + dominio);
- 	salida.push(apellido + "@" + dominio);
- 	var tamCarEps = caracteresEsp.length>0
+ 	if (apellido.length>0) {
+ 		salida.push(apellido + "@" + dominio);
+ 	}
+
+ 	var tamCarEps = caracteresEsp.length
  	
  	if (apellido.length>0 && nombre.length>0){
  		for (var i = 0; i < tamCarEps; i++) {
@@ -56,7 +59,7 @@ var band=0;
  			salida.push(apellido.substring(0, j) + caracteresEsp[i] + nombre + "@" + dominio);
  		}
  	}
-
+ 	
  }
 
 /**
@@ -239,28 +242,40 @@ function acceso(userType,ip,res,next){
 			db.MaestroConsulta.findOne({IPAddress:ip, userType:userType},function (err,data){
 				if (err)
 					console.log(err);
-				else
+				else{			
 					if (data != null && data.IPAddress == ip){
 						if (data.search< data1.maxSearch){
-
+							console.log(data);
 							var fecha = new Date();
 							var fechaUltimoAcceso= data.ultimaConsulta;
 							var tiempoTranscurrido=(fecha.getTime()-fechaUltimoAcceso.getTime());
 							var rebootTime=1000*(data1.rebootTime.split(':')[0]*3600+data1.rebootTime.split(':')[1]*60+data1.rebootTime.split(':')[2]);
-							controller.accesoPermitido = true;
-							controller.waitTime='00:00:00';
+							if ((fecha.getTime()-fechaUltimoAcceso.getTime())>rebootTime){
+								db.MaestroConsulta.update({IPAddress:ip},{search: 1,ultimaConsulta: new Date() } ,{multi:true}, function(err,rowupdates){
+									
+								});
+								controller.consultasRestantes=data1.maxSearch - (1);
 
-							db.MaestroConsulta.update({IPAddress:ip},{search: data.search+1,ultimaConsulta: new Date() } ,{multi:true}, function(err,rowupdates){
-								buscarCorreoBD(res);
+							}else {
+
+								db.MaestroConsulta.update({IPAddress:ip},{search: data.search+1,ultimaConsulta: new Date() } ,{multi:true}, function(err,rowupdates){
+									buscarCorreoBD(res);
 								//console.log('rowupdates:'+ rowupdates);
 
 							});
-							controller.consultasRestantes=data1.maxSearch - (data.search+1);
+								controller.consultasRestantes=data1.maxSearch - (data.search+1);
 
+							}
+							controller.accesoPermitido = true;
+							controller.waitTime='00:00:00';
+
+							
+							
 						}else{
 							var fecha = new Date();
 							var fechaUltimoAcceso= data.ultimaConsulta;
-
+							console.log(data);
+							console.log(data1);
 							var waitTime=1000*(data1.waitTime.split(':')[0]*3600+data1.waitTime.split(':')[1]*60+data1.waitTime.split(':')[2]);
 							var tiempoTranscurrido=(fecha.getTime()-fechaUltimoAcceso.getTime());
 							if ((fecha.getTime()-fechaUltimoAcceso.getTime())>waitTime){
@@ -293,6 +308,7 @@ function acceso(userType,ip,res,next){
 
 						}
 					}
+
 					else {	
 						controller.accesoPermitido = true;
 						controller.waitTime='00:00:00';
@@ -306,14 +322,15 @@ function acceso(userType,ip,res,next){
 								buscarCorreoBD(res);
 
 							}
-							
+
 
 						});
 
-						
+
 
 					}
-				});
+				}
+			});
 
 
 	});
@@ -396,6 +413,62 @@ function consultasDisponibles(userType,ip,res,next){
 	});
 
 }
+/**
+* funcion para realizar el cobro
+*/
+
+function realizarCobro(elBody, res,next ){
+	var stripe = require("stripe")("sk_test_BQokikJOvBiI2HlWgH4olfQ2");
+
+	// (Assuming you're using express - expressjs.com)
+	// Get the credit card details submitted by the form
+	var stripeToken = elBody.stripeToken;
+
+	var charge = stripe.charges.create({
+	  amount: 1000, // amount in cents, again
+	  currency: "usd",
+	  source: stripeToken,
+	  description: "Example charge"
+	}, function(err, charge) {
+		if (err && err.type === 'StripeCardError') {
+	    // The card has been declined
+	    console.log(err);
+	  //  enviarCorreoCobro(token,res,next);
+	    res.json({pagoAprobado:false,error:err.Type});
+	}else{
+		enviarCorreoCobro(elBody,res,next);
+		
+	}
+});
+
+}
+
+function enviarCorreoCobro(token,res,next){
+	 console.log(token);
+	var nodemailer = require('nodemailer');
+
+// create reusable transporter object using the default SMTP transport
+    var transporter = nodemailer.createTransport('smtps://ntorres144@gmail.com:14088424zerox@smtp.gmail.com');
+
+// setup e-mail data with unicode symbols
+var mailOptions = {
+    from: '"Cual es Su Correo " <webmaster@cualessucorreo.com>', // sender address
+    to: token.stripeEmail, // list of receivers
+    subject: 'Bienvenido a Cual es su Correo', // Subject line
+    text: 'Bienvenido al mejor sistema de consulta de correos en la web. \n\n a través del siguiente enlace podra acceder a su cuenta  y disfrutar de nuestro servicio ilimitado\n\n http://www.cualessucorreo.com/usuariosPagos?userid:'+token.stripeToken+'&usermail:'+token.stripeEmail, // plaintext body
+    html: '<b>Bienvenido al mejor sistema de consulta de correos en la web. <br />  <br />a través del siguiente enlace podra acceder a su cuenta  y disfrutar de nuestro servicio ilimitado<br /> <br /> <a href="http://www.cualessucorreo.com/usuariosPagos?userid:'+token.stripeToken+'&usermail:'+token.stripeEmail+'" >http://www.cualessucorreo.com/usuariosPagos </a> </b>' // html body
+};
+
+// send mail with defined transport object
+transporter.sendMail(mailOptions, function(error, info){
+	if(error){
+		 console.log(error);
+		res.json({pagoAprobado:false,error:""});
+	}
+	console.log('Message sent: ' + info.response);
+	res.json({pagoAprobado:true,error:""});
+});
+}
 
 /**
 * funcion que normaliza el texto, elimina tildes y Ñ y los sustituye
@@ -431,4 +504,5 @@ var normalize = (function() {
 */
 exports.peticion = peticion;
 exports.consultasDisponibles = consultasDisponibles;
+exports.realizarCobro = realizarCobro;
 
