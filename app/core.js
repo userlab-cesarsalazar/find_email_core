@@ -448,7 +448,7 @@ function enviarCorreoCobro(token,res,next){
 	var nodemailer = require('nodemailer');
 
 // create reusable transporter object using the default SMTP transport
-    var transporter = nodemailer.createTransport('smtps://ntorres144@gmail.com:14088424zerox@smtp.gmail.com');
+    var transporter = nodemailer.createTransport('smtps://correo@gmail.com:pass@smtp.gmail.com');
 
 // setup e-mail data with unicode symbols
 var mailOptions = {
