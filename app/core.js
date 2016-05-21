@@ -564,8 +564,8 @@ function enviarCorreoCobro(token,res,next){
 		};
 		var directConfig = {
     		name: 'cualessucorreo.com' // must be the same that can be reverse resolved by DNS for your IP
-		};
-	  	var transporter = nodemailer.createTransport('smtps://ntorres144@gmail.com:14088424zerox@smtp.gmail.com'); //'smtp://admin@cualessucorreo.com@mail.cualessucorreo.com'
+		};//ACOMODAR CORREO!
+	  	var transporter = nodemailer.createTransport(directConfig);//usar directcConfig o smtpConfig // para gmail ->'smtps://usuario@gmail.com:pass@smtp.gmail.com'
 
 // setup e-mail data with unicode symbols
 var mailOptions = {
