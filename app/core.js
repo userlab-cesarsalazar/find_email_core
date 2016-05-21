@@ -5,7 +5,7 @@ var db = require("../app/dbConfig"); // base de datos utiliza mongoose
 /*
 *	variables de control y salida
 */
-var controller = {accesoPermitido:false,resultadoPositivo:false, userType:'guest', ipOrigen:'', correoValido:'',consultasRestantes:0,waitTime:'00:00:00',error:"",errCode:0 }
+var controller = {accesoPermitido:false,resultadoPositivo:false, userType:'guest', ipOrigen:'', correoValido:'',consultasRestantes:0,waitTime:'00:00:00',error:"",errCode:0 ,diasRestantes:0}
 var salida= [];
 var nombre="";
 var apellido="";
@@ -69,10 +69,11 @@ var band=0;
 **/
 function verificarCorreoSMTPRecursiva(lista,pos,res) {
 	if (lista.length>pos && band==0){
-
+		console.log("verificando...");
 		var verifier = require('email-verify');
 		verifier.verify(lista[pos], function(err, info) {
 			if (err) {
+				console.log("emailverifuerror:"+err);
  			band=3;//error de servidor
  			controller.resultadoPositivo=false;
  			controller.error="Connection Refused by Server";
@@ -190,6 +191,7 @@ function buscarCorreoBD(res){
 
 			});
 		}else {
+			//console.log("llego aqui");
 			buscarCorreoValido(salida, 0, res);
 
 		} 
@@ -206,9 +208,10 @@ function buscarCorreoBD(res){
 *  Función de origen al Core, por aqui se comienza a buscar, 
 *  se genera la lista de correos y hace el llamado a donde se validan las credenciales 
 */
-function peticion(userType,ip,nombre2,apellido2,dominio2,res,next) {
+function peticion(userType,ip,nombre2,apellido2,dominio2,elBody,res,next) {
 	
 	// body...
+	var tipoUsr="guest";
 	nombre=normalize(nombre2).toLowerCase();
 	apellido=normalize(apellido2).toLowerCase();
 	dominio=normalize(dominio2).toLowerCase();
@@ -217,9 +220,35 @@ function peticion(userType,ip,nombre2,apellido2,dominio2,res,next) {
 	controller.error="";
 	controller.errCode=0;
 	controller.correoValido="";
+	controller.diasRestantes=0;
 	salida=[];
 	generar(nombre,apellido,dominio,array);
-	acceso(userType,ip,res);
+	//console.log(salida);
+
+	db.Users.findOne({ mail: elBody.usermail ,customerId:elBody.userid , fechaValido : {$gte: new Date()}}, function(err,data1){
+		if (err){
+			console.log(err);
+			tipoUsr = "guest";
+			//acceso(tipoUsr,ip,res);
+		}else{
+			if (data1!=null){
+				//res.json({consultasRestantes:"-1", waitTime:"00:00:00"});
+				tipoUsr="paid";
+				var moment= require('moment');
+				var fechaValido = moment(data1.fechaValido);
+				var today= moment(new Date());
+				controller.diasRestantes=fechaValido.diff(today,'days');
+				//console.log("datos de consulta: " + data1);
+				acceso(tipoUsr,ip,res);
+
+			}else {
+				tipoUsr="guest";
+				acceso(tipoUsr,ip,res);
+			}
+		}
+	});
+
+	
 
 }
 
@@ -245,7 +274,7 @@ function acceso(userType,ip,res,next){
 				else{			
 					if (data != null && data.IPAddress == ip){
 						if (data.search< data1.maxSearch){
-							console.log(data);
+							//console.log(data);
 							var fecha = new Date();
 							var fechaUltimoAcceso= data.ultimaConsulta;
 							var tiempoTranscurrido=(fecha.getTime()-fechaUltimoAcceso.getTime());
@@ -274,8 +303,8 @@ function acceso(userType,ip,res,next){
 						}else{
 							var fecha = new Date();
 							var fechaUltimoAcceso= data.ultimaConsulta;
-							console.log(data);
-							console.log(data1);
+							//console.log(data);
+							//console.log(data1);
 							var waitTime=1000*(data1.waitTime.split(':')[0]*3600+data1.waitTime.split(':')[1]*60+data1.waitTime.split(':')[2]);
 							var tiempoTranscurrido=(fecha.getTime()-fechaUltimoAcceso.getTime());
 							if ((fecha.getTime()-fechaUltimoAcceso.getTime())>waitTime){
@@ -337,80 +366,105 @@ function acceso(userType,ip,res,next){
 
 }
 
-function consultasDisponibles(userType,ip,res,next){
-
-	controller.ipOrigen = ip;
-	controller.userType = userType;
+function consultasDisponibles(elBody,ip,res,next){
 	
 
-	db.UserConfig.findOne({userType:userType}, function(err,data1){
-		if (err)
+	controller.ipOrigen = ip;
+	controller.userType = elBody.userType||"guest";
+	
+	db.Users.findOne({ mail: elBody.usermail ,customerId:elBody.userid , fechaValido : {$gte: new Date()}}, function(err,data1){
+		if (err){
 			console.log(err);
-		else
-			db.MaestroConsulta.findOne({IPAddress:ip, userType:userType},function (err,data){
-				if (err)
-					console.log(err);
-				else
-					if (data != null && data.IPAddress == ip){
-						if (data.search< data1.maxSearch){
+			controller.userType = "guest";
+		}else{
+			if (data1!=null){
+				var moment= require('moment');
+				var fechaValido = moment(data1.fechaValido);
+				var today= moment(new Date());
+				res.json({consultasRestantes:"-1", waitTime:"00:00:00", diasRestantes:fechaValido.diff(today,'days')});
+				
+				console.log("datos de consulta: " + data1);
 
-							try{
-								res.json({consultasRestantes:data1.maxSearch-data.search, waitTime:"00:00:00"});
-							}catch(e){
-								res.end;
-								console.log(e);
-								console.log(e.stack);
-							}
-						}else{
-							var fecha = new Date();
-							var fechaUltimoAcceso= data.ultimaConsulta;
+			}else {
 
-							var waitTime=1000*(data1.waitTime.split(':')[0]*3600+data1.waitTime.split(':')[1]*60+data1.waitTime.split(':')[2]);
-							var tiempoTranscurrido=(fecha.getTime()-fechaUltimoAcceso.getTime());
-							if ((fecha.getTime()-fechaUltimoAcceso.getTime())>waitTime){
-								
-								try{
-									res.json({consultasRestantes:data1.maxSearch, waitTime:"00:00:00"});
-								}catch(e){
-									res.end;
-									console.log(e);
-									console.log(e.stack);
+				db.UserConfig.findOne({userType:controller.userType}, function(err,data1){
+					if (err)
+						console.log(err);
+					else
+						db.MaestroConsulta.findOne({IPAddress:ip, userType:controller.userType},function (err,data){
+							if (err)
+								console.log(err);
+							else
+								if (data != null && data.IPAddress == ip){
+									if (data.search< data1.maxSearch){
+
+										try{
+											res.json({consultasRestantes:data1.maxSearch-data.search, waitTime:"00:00:00", diasRestantes:0});
+										}catch(e){
+											res.end;
+											console.log(e);
+											console.log(e.stack);
+										}
+									}else{
+										var fecha = new Date();
+										var fechaUltimoAcceso= data.ultimaConsulta;
+
+										var waitTime=1000*(data1.waitTime.split(':')[0]*3600+data1.waitTime.split(':')[1]*60+data1.waitTime.split(':')[2]);
+										var tiempoTranscurrido=(fecha.getTime()-fechaUltimoAcceso.getTime());
+										if ((fecha.getTime()-fechaUltimoAcceso.getTime())>waitTime){
+
+											try{
+												res.json({consultasRestantes:data1.maxSearch, waitTime:"00:00:00",diasRestantes:0});
+											}catch(e){
+												res.end;
+												console.log(e);
+												console.log(e.stack);
+											}
+										}else {
+											var tiempo=new Date(waitTime - tiempoTranscurrido);
+
+
+
+											try{
+												res.json({consultasRestantes:0,waitTime:(tiempo.getHours())+":"+(tiempo.getMinutes())+":"+tiempo.getSeconds()});
+
+
+											}catch(e){
+												res.end;
+												console.log(e);
+												console.log(e.stack);
+											}
+
+										}
+
+									}
 								}
-							}else {
-								var tiempo=new Date(waitTime - tiempoTranscurrido);
+								else {							
+									try{
+										res.json({consultasRestantes:data1.maxSearch, waitTime: "00:00:00", diasRestantes:0})
+									}catch(e){
+										res.end;
+										console.log(e);
+										console.log(e.stack);
+									}
 
-								
-
-								try{
-									res.json({consultasRestantes:0,waitTime:(tiempo.getHours())+":"+(tiempo.getMinutes())+":"+tiempo.getSeconds()});
 
 
-								}catch(e){
-									res.end;
-									console.log(e);
-									console.log(e.stack);
 								}
+							});
 
-							}
 
-						}
-					}
-					else {							
-						try{
-							res.json({consultasRestantes:data1.maxSearch, waitTime: "00:00:00"})
-						}catch(e){
-							res.end;
-							console.log(e);
-							console.log(e.stack);
-						}
-
-						
-
-					}
 				});
 
 
-	});
+			} 
+			
+		}
+
+
+	});	
+
+	
 
 }
 /**
@@ -422,52 +476,124 @@ function realizarCobro(elBody, res,next ){
 
 	// (Assuming you're using express - expressjs.com)
 	// Get the credit card details submitted by the form
-	var stripeToken = elBody.stripeToken;
+	var stripeToken = elBody.stripeToken||elBody.token.id;
+	var mail = elBody.stripeEmail||elBody.token.email;
+	console.log(stripeToken);
+	//se valida que no exista un usario sin vencerse para ese correo en la base de datos para no cobrar 2 veces...
+	//
+	console.log(mail);
+	db.Users.findOne({ mail: mail ,fechaValido : {$gte: new Date()}}, function(err,data1){
+		if (err){
+			console.log(err);
+			res.json({pagoAprobado:false,error:err.message});
+		}else{
+			if (data1!=null){
+				res.json({pagoAprobado:false,error:"Correo registrado con tiempo disponible en el  servicio ilimitado"});
+				return;
+				console.log("datos de consulta: " + data1);
 
-	var charge = stripe.charges.create({
-	  amount: 1000, // amount in cents, again
-	  currency: "usd",
-	  source: stripeToken,
-	  description: "Example charge"
-	}, function(err, charge) {
-		if (err && err.type === 'StripeCardError') {
-	    // The card has been declined
-	    console.log(err);
-	  //  enviarCorreoCobro(token,res,next);
-	    res.json({pagoAprobado:false,error:err.Type});
-	}else{
-		enviarCorreoCobro(elBody,res,next);
-		
-	}
-});
+			}else {
+
+				var charge = stripe.charges.create({
+				  amount: 1000, // amount in cents, again
+				  currency: "usd",
+				  source: stripeToken,
+				  description: "Example charge"
+				}, function(err, charge) {
+					if (err)
+						console.log("error de cobro" +err);
+					if (err && err.type === 'StripeCardError') {
+				    // The card has been declined
+				    console.log(err);
+				  //  enviarCorreoCobro(token,res,next);
+				  res.json({pagoAprobado:false,error:err.message});
+				  
+				}else{
+					var today= new Date();
+					var vence= new Date();
+					vence.setDate(vence.getDate()+30);
+					db.Users.create ({mail:mail,customerId:stripeToken, fechaValido:vence ,fechaRegistro:today, cardLast4:elBody.token.card.last4}, function (err, data){
+						if (err){
+							console.error(err);
+							res.json({pagoAprobado:false,error:err.message});
+
+						}else{
+							console.log("registro creado");
+							//console.log(data);
+							enviarCorreoCobro(elBody,res,next);
+						}
+					});
+
+				}
+			});
+
+			} 
+			
+		}
+
+
+	});
+
+
 
 }
 
 function enviarCorreoCobro(token,res,next){
-	 console.log(token);
+	//console.log(token);
 	var nodemailer = require('nodemailer');
-
+	var email = token.stripeEmail||token.token.email;
+	var stripeToken = token.stripeToken||token.token.id;
 // create reusable transporter object using the default SMTP transport
-    var transporter = nodemailer.createTransport('smtps://correo@gmail.com:pass@smtp.gmail.com');
+	var fs = require('fs');
+	var html ="";
+	fs.readFile('mailTemplate/bienvenida.html', 'utf8', function(err, file){
+	if(err){
+	      //handle errors
+	      console.log('ERROR!');
+	     res.json({pagoAprobado:false,error:error.message});
+	  }
+	  else {
+	  	html=file;
+	  	html=html.replace('$ADDRESS$','http://www.cualessucorreo.com/usuariosPagos?userid='+stripeToken+'&usermail='+email);
+	  	html=html.replace('$NOMBRE$', email);
+	  	var smtpConfig = {
+		     host: 'smtp.cualessucorreo.com',
+		    port: 25,
+		    secure: false // use SSL
+		    
+		};
+		var directConfig = {
+    		name: 'cualessucorreo.com' // must be the same that can be reverse resolved by DNS for your IP
+		};
+	  	var transporter = nodemailer.createTransport('smtps://ntorres144@gmail.com:14088424zerox@smtp.gmail.com'); //'smtp://admin@cualessucorreo.com@mail.cualessucorreo.com'
 
 // setup e-mail data with unicode symbols
 var mailOptions = {
-    from: '"Cual es Su Correo " <webmaster@cualessucorreo.com>', // sender address
-    to: token.stripeEmail, // list of receivers
+    from: '"Cual es Su Correo " <admin@cualessucorreo.com>', // sender address
+    to: email, // list of receivers
     subject: 'Bienvenido a Cual es su Correo', // Subject line
-    text: 'Bienvenido al mejor sistema de consulta de correos en la web. \n\n a través del siguiente enlace podra acceder a su cuenta  y disfrutar de nuestro servicio ilimitado\n\n http://www.cualessucorreo.com/usuariosPagos?userid:'+token.stripeToken+'&usermail:'+token.stripeEmail, // plaintext body
-    html: '<b>Bienvenido al mejor sistema de consulta de correos en la web. <br />  <br />a través del siguiente enlace podra acceder a su cuenta  y disfrutar de nuestro servicio ilimitado<br /> <br /> <a href="http://www.cualessucorreo.com/usuariosPagos?userid:'+token.stripeToken+'&usermail:'+token.stripeEmail+'" >http://www.cualessucorreo.com/usuariosPagos </a> </b>' // html body
+    text: 'Bienvenido al mejor sistema de consulta de correos en la web. \n\n A través del siguiente enlace podra acceder a su cuenta  y disfrutar de nuestro servicio ilimitado por 30 días continuos\n\n http://www.cualessucorreo.com/usuariosPagos?userid='+stripeToken+'&usermail='+email, // plaintext body
+    
+
+
+    html:html
+    // '<b>Bienvenido al mejor sistema de consulta de correos en la web. <br />  <br />A través del siguiente enlace podra acceder a su cuenta  y disfrutar de nuestro servicio ilimitado por 30 días continuos<br /> <br /> <a href="http://www.cualessucorreo.com/usuariosPagos?userid='+stripeToken+'&usermail='+email+'" >http://www.cualessucorreo.com/usuariosPagos </a> </b>' // html body
 };
 
 // send mail with defined transport object
 transporter.sendMail(mailOptions, function(error, info){
 	if(error){
-		 console.log(error);
-		res.json({pagoAprobado:false,error:""});
+		console.log(error);
+		res.json({pagoAprobado:false,error:error.message});
+	}else
+	{
+		console.log('Message sent: ' + info.response);
+		res.json({pagoAprobado:true,error:"", link:'http://www.cualessucorreo.com/usuariosPagos?userid='+stripeToken+'&usermail='+email});
 	}
-	console.log('Message sent: ' + info.response);
-	res.json({pagoAprobado:true,error:""});
 });
+	  }
+	});
+
 }
 
 /**

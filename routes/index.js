@@ -15,7 +15,7 @@ router.get('/', function(req, res, next) {
 
 
 router.post('/buscar', function(req, res, next) {
-	//console.log(req.body);
+	console.log(req.body);
 
 	if (req.body.apellido==null){
 		nombres=req.body.nombre.trim().split(" ");
@@ -29,12 +29,18 @@ router.post('/buscar', function(req, res, next) {
  		}
 
 	}
-	core.peticion(req.body.userType,req.ip,normalize(req.body.nombre),normalize(req.body.apellido),normalize(req.body.dominio),res,next);
+ 
+
+	core.peticion(req.body.userType,req.ip,normalize(req.body.nombre),normalize(req.body.apellido),normalize(req.body.dominio),req.body,res,next);
+
+
 });
 
 router.post('/consultas', function(req, res, next) {
 
-	core.consultasDisponibles(req.body.userType,req.ip,res,next);
+  console.log(req.body);
+  
+	core.consultasDisponibles(req.body,req.ip,res,next);
 });
 
 router.post('/pagos', function(req, res, next) {

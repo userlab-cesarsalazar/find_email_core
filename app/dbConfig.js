@@ -39,23 +39,17 @@ var userConfigSchema = new mongoose.Schema({
 });
  
 
-var userConfigSchema = new mongoose.Schema({
-    userType:{type:String, index: {unique: true, dropDups: true }},
-    rebootTime: String,
-    waitTime: String,
-    maxSearch: Number,
-        
-});
+
 
 var users = new mongoose.Schema({
-	mail: {type:String, index: {unique: true, dropDups: true }},
-    userType:String, 
-    password: String,
-    name: String,
-    customerId:String 
+	mail:String,
+    customerId:String,
+    fechaValido: Date,
+    fechaRegistro:Date,
+    cardLast4:String
         
 });
-
+users.index( {mail:1, customerId:1}, {unique: true });
  
 /*mongoose.model('ConsultasDetalle', ConsultasDetalleSchema);
 mongoose.model('MaestroConsulta', MaestroConsultaSchema);
@@ -65,6 +59,7 @@ module.exports = {
     db: mongoose,
     UserConfig: mongoose.model('UserConfig', userConfigSchema),
     MaestroConsulta: mongoose.model('MaestroConsulta', MaestroConsultaSchema),
-    ConsultasDetalle: mongoose.model('ConsultasDetalle', ConsultasDetalleSchema)
+    ConsultasDetalle: mongoose.model('ConsultasDetalle', ConsultasDetalleSchema),
+    Users:mongoose.model('Users', users)
 
 } 
