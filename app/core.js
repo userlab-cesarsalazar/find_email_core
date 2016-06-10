@@ -500,13 +500,10 @@ function realizarCobro(elBody, res,next ){
 				  source: stripeToken,
 				  description: "Example charge"
 				}, function(err, charge) {
-					if (err)
+					if (err ){
+						res.json({pagoAprobado:false,error:err.message});
 						console.log("error de cobro" +err);
-					if (err && err.type === 'StripeCardError') {
-				    // The card has been declined
-				    console.log(err);
-				  //  enviarCorreoCobro(token,res,next);
-				  res.json({pagoAprobado:false,error:err.message});
+					
 				  
 				}else{
 					var today= new Date();
@@ -544,32 +541,35 @@ function enviarCorreoCobro(token,res,next){
 	var email = token.stripeEmail||token.token.email;
 	var stripeToken = token.stripeToken||token.token.id;
 // create reusable transporter object using the default SMTP transport
-	var fs = require('fs');
-	var html ="";
-	fs.readFile('mailTemplate/bienvenida.html', 'utf8', function(err, file){
+var fs = require('fs');
+var html ="";
+fs.readFile('mailTemplate/bienvenida.html', 'utf8', function(err, file){
 	if(err){
 	      //handle errors
 	      console.log('ERROR!');
-	     res.json({pagoAprobado:false,error:error.message});
+	      res.json({pagoAprobado:false,error:error.message});
 	  }
 	  else {
 	  	html=file;
 	  	html=html.replace('$ADDRESS$','http://www.cualessucorreo.com/usuariosPagos?userid='+stripeToken+'&usermail='+email);
 	  	html=html.replace('$NOMBRE$', email);
 	  	var smtpConfig = {
-		     host: 'smtp.cualessucorreo.com',
-		    port: 25,
-		    secure: false // use SSL
-		    
+	  		  service: "Gmail",
+	  	//	host: 'www.cualessucorreo.com',
+	  	//	port: 465,
+		//    secure: true, // use SSL
+		    auth: {
+		    	user: "info@cualessucorreo.com",
+		    	pass: "superfacil20"
+		    }
+
 		};
-		var directConfig = {
-    		name: 'cualessucorreo.com' // must be the same that can be reverse resolved by DNS for your IP
-		};//ACOMODAR CORREO!
-	  	var transporter = nodemailer.createTransport(directConfig);//usar directcConfig o smtpConfig // para gmail ->'smtps://usuario@gmail.com:pass@smtp.gmail.com'
+		
+	  	var transporter = nodemailer.createTransport(smtpConfig);//usar directcConfig o smtpConfig // para gmail ->'smtps://usuario@gmail.com:pass@smtp.gmail.com'
 
 // setup e-mail data with unicode symbols
 var mailOptions = {
-    from: '"Cual es Su Correo " <admin@cualessucorreo.com>', // sender address
+    from: '"Cual es Su Correo " <info@cualessucorreo.com>', // sender address
     to: email, // list of receivers
     subject: 'Bienvenido a Cual es su Correo', // Subject line
     text: 'Bienvenido al mejor sistema de consulta de correos en la web. \n\n A través del siguiente enlace podra acceder a su cuenta  y disfrutar de nuestro servicio ilimitado por 30 días continuos\n\n http://www.cualessucorreo.com/usuariosPagos?userid='+stripeToken+'&usermail='+email, // plaintext body
@@ -591,8 +591,8 @@ transporter.sendMail(mailOptions, function(error, info){
 		res.json({pagoAprobado:true,error:"", link:'http://www.cualessucorreo.com/usuariosPagos?userid='+stripeToken+'&usermail='+email});
 	}
 });
-	  }
-	});
+}
+});
 
 }
 
